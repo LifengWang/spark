@@ -40,6 +40,9 @@ public class SparkLauncher {
   /** The Spark master. */
   public static final String SPARK_MASTER = "spark.master";
 
+  /** The Spark deploy mode. */
+  public static final String DEPLOY_MODE = "spark.submit.deployMode";
+
   /** Configuration key for the driver memory. */
   public static final String DRIVER_MEMORY = "spark.driver.memory";
   /** Configuration key for the driver class path. */
@@ -64,6 +67,13 @@ public class SparkLauncher {
   public static final String CHILD_PROCESS_LOGGER_NAME = "spark.launcher.childProcLoggerName";
 
   /**
+   * A special value for the resource that tells Spark to not try to process the app resource as a
+   * file. This is useful when the class being executed is added to the application using other
+   * means - for example, by adding jars using the package download feature.
+   */
+  public static final String NO_RESOURCE = "spark-internal";
+
+  /**
    * Maximum time (in ms) to wait for a child process to connect back to the launcher server
    * when using @link{#start()}.
    */
@@ -72,7 +82,7 @@ public class SparkLauncher {
   /** Used internally to create unique logger names. */
   private static final AtomicInteger COUNTER = new AtomicInteger();
 
-  static final Map<String, String> launcherConfig = new HashMap<String, String>();
+  static final Map<String, String> launcherConfig = new HashMap<>();
 
   /**
    * Set a configuration value for the launcher library. These config values do not affect the
@@ -350,7 +360,7 @@ public class SparkLauncher {
 
   /**
    * Launches a sub-process that will start the configured Spark application.
-   * <p/>
+   * <p>
    * The {@link #startApplication(SparkAppHandle.Listener...)} method is preferred when launching
    * Spark, since it provides better control of the child application.
    *
@@ -362,16 +372,16 @@ public class SparkLauncher {
 
   /**
    * Starts a Spark application.
-   * <p/>
+   * <p>
    * This method returns a handle that provides information about the running application and can
    * be used to do basic interaction with it.
-   * <p/>
+   * <p>
    * The returned handle assumes that the application will instantiate a single SparkContext
    * during its lifetime. Once that context reports a final state (one that indicates the
    * SparkContext has stopped), the handle will not perform new state transitions, so anything
    * that happens after that cannot be monitored. If the underlying application is launched as
    * a child process, {@link SparkAppHandle#kill()} can still be used to kill the child process.
-   * <p/>
+   * <p>
    * Currently, all applications are launched as child processes. The child's stdout and stderr
    * are merged and written to a logger (see <code>java.util.logging</code>). The logger's name
    * can be defined by setting {@link #CHILD_PROCESS_LOGGER_NAME} in the app's configuration. If
@@ -425,7 +435,7 @@ public class SparkLauncher {
   }
 
   private ProcessBuilder createBuilder() {
-    List<String> cmd = new ArrayList<String>();
+    List<String> cmd = new ArrayList<>();
     String script = isWindows() ? "spark-submit.cmd" : "spark-submit";
     cmd.add(join(File.separator, builder.getSparkHome(), "bin", script));
     cmd.addAll(builder.buildSparkSubmitArgs());
@@ -434,7 +444,7 @@ public class SparkLauncher {
     // preserved, otherwise the batch interpreter will mess up the arguments. Batch scripts are
     // weird.
     if (isWindows()) {
-      List<String> winCmd = new ArrayList<String>();
+      List<String> winCmd = new ArrayList<>();
       for (String arg : cmd) {
         winCmd.add(quoteForBatchScript(arg));
       }
@@ -474,6 +484,6 @@ public class SparkLauncher {
       // No op.
     }
 
-  };
+  }
 
 }

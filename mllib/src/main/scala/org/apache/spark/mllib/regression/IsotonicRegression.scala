@@ -29,16 +29,14 @@ import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods._
 
 import org.apache.spark.SparkContext
-import org.apache.spark.annotation.{Experimental, Since}
+import org.apache.spark.annotation.Since
 import org.apache.spark.api.java.{JavaDoubleRDD, JavaRDD}
 import org.apache.spark.mllib.linalg.{Vector, Vectors}
 import org.apache.spark.mllib.util.{Loader, Saveable}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.SparkSession
 
 /**
- * :: Experimental ::
- *
  * Regression model for isotonic regression.
  *
  * @param boundaries Array of boundaries for which predictions are known.
@@ -49,7 +47,6 @@ import org.apache.spark.sql.SQLContext
  *
  */
 @Since("1.3.0")
-@Experimental
 class IsotonicRegressionModel @Since("1.3.0") (
     @Since("1.3.0") val boundaries: Array[Double],
     @Since("1.3.0") val predictions: Array[Double],
@@ -139,7 +136,7 @@ class IsotonicRegressionModel @Since("1.3.0") (
     // higher than all values, in between two values or exact match.
     if (insertIndex == 0) {
       predictions.head
-    } else if (insertIndex == boundaries.length){
+    } else if (insertIndex == boundaries.length) {
       predictions.last
     } else if (foundIndex < 0) {
       linearInterpolation(
@@ -188,21 +185,21 @@ object IsotonicRegressionModel extends Loader[IsotonicRegressionModel] {
         boundaries: Array[Double],
         predictions: Array[Double],
         isotonic: Boolean): Unit = {
-      val sqlContext = new SQLContext(sc)
+      val spark = SparkSession.builder().sparkContext(sc).getOrCreate()
 
       val metadata = compact(render(
         ("class" -> thisClassName) ~ ("version" -> thisFormatVersion) ~
           ("isotonic" -> isotonic)))
       sc.parallelize(Seq(metadata), 1).saveAsTextFile(metadataPath(path))
 
-      sqlContext.createDataFrame(
+      spark.createDataFrame(
         boundaries.toSeq.zip(predictions).map { case (b, p) => Data(b, p) }
       ).write.parquet(dataPath(path))
     }
 
     def load(sc: SparkContext, path: String): (Array[Double], Array[Double]) = {
-      val sqlContext = new SQLContext(sc)
-      val dataRDD = sqlContext.read.parquet(dataPath(path))
+      val spark = SparkSession.builder().sparkContext(sc).getOrCreate()
+      val dataRDD = spark.read.parquet(dataPath(path))
 
       checkSchema[Data](dataRDD.schema)
       val dataArray = dataRDD.select("boundary", "prediction").collect()
@@ -224,7 +221,7 @@ object IsotonicRegressionModel extends Loader[IsotonicRegressionModel] {
         val (boundaries, predictions) = SaveLoadV1_0.load(sc, path)
         new IsotonicRegressionModel(boundaries, predictions, isotonic)
       case _ => throw new Exception(
-        s"IsotonicRegressionModel.load did not recognize model with (className, format version):" +
+        s"IsotonicRegressionModel.load did not recognize model with (className, format version): " +
         s"($loadedClassName, $version).  Supported:\n" +
         s"  ($classNameV1_0, 1.0)"
       )
@@ -233,8 +230,6 @@ object IsotonicRegressionModel extends Loader[IsotonicRegressionModel] {
 }
 
 /**
- * :: Experimental ::
- *
  * Isotonic regression.
  * Currently implemented using parallelized pool adjacent violators algorithm.
  * Only univariate (single feature) algorithm supported.
@@ -252,7 +247,6 @@ object IsotonicRegressionModel extends Loader[IsotonicRegressionModel] {
  *
  * @see [[http://en.wikipedia.org/wiki/Isotonic_regression Isotonic regression (Wikipedia)]]
  */
-@Experimental
 @Since("1.3.0")
 class IsotonicRegression private (private var isotonic: Boolean) extends Serializable {
 
